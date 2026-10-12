@@ -5,7 +5,9 @@ import argparse
 import ctypes
 import json
 import logging
+import math
 from pathlib import Path
+import threading
 import time
 
 #########################################
@@ -49,7 +51,7 @@ def load_pattern(path):
 #########################################
 # Main
 #########################################
-def main():
+def create_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pattern", type=Path, default=BASE_DIR / "pattern.json")
     parser.add_argument("--threshold", type=float, default=0.6)
@@ -58,9 +60,20 @@ def main():
     parser.add_argument("--save-timeout", type=float, default=15)
     parser.add_argument("--hold-left", action="store_true", help="Mantener clic izquierdo durante el patrón")
     parser.add_argument("--once", action="store_true", help="Completar un solo ciclo")
-    args = parser.parse_args()
-    if not 0 < args.threshold <= 1 or args.point_delay < 0 or args.save_timeout <= 0 or not 0 < args.move_duration < float("inf"):
-        parser.error("Umbral entre 0 y 1; demora >= 0, duración finita > 0 y timeout > 0.")
+    return parser
+
+
+def validate_options(args):
+    values = (args.threshold, args.point_delay, args.save_timeout, args.move_duration)
+    if not all(math.isfinite(value) for value in values) or not 0 < args.threshold <= 1 or args.point_delay < 0 or args.save_timeout <= 0 or args.move_duration <= 0:
+        raise ValueError("Umbral entre 0 y 1; demora >= 0, duración > 0 y timeout > 0. Todos deben ser finitos.")
+
+
+def run_bot(args, stop=None):
+    """Motor compartido por la consola y la interfaz gráfica."""
+    validate_options(args)
+    if stop is None:
+        stop = threading.Event()
 
     ctypes.windll.user32.SetProcessDPIAware()
     import cv2
@@ -80,8 +93,6 @@ def main():
             raise ValueError(f"No se pudo leer {path}")
         templates[name] = template
 
-    import threading
-    stop = threading.Event()
     listener = keyboard.Listener(on_press=lambda key: stop.set() if key == keyboard.Key.f8 else None)
     listener.start()
     pdi.FAILSAFE = True
@@ -155,6 +166,16 @@ def main():
         stop.set()
         listener.stop()
         logging.info("Bot detenido.")
+
+
+def main():
+    parser = create_parser()
+    args = parser.parse_args()
+    try:
+        validate_options(args)
+    except ValueError as error:
+        parser.error(str(error))
+    run_bot(args)
 
 
 #########################################

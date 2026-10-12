@@ -56,7 +56,11 @@ jobs:
             $process.Kill()
             throw 'El ejecutable no terminó la verificación.'
           }
-          if ($process.ExitCode -ne 0) { throw "Falló la verificación: $($process.ExitCode)" }
+          if ($process.ExitCode -ne 0) {
+            $log = Join-Path $env:TEMP 'CleanerKota-smoke-test.log'
+            if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
+            throw "Falló la verificación: $($process.ExitCode)"
+          }
       - name: Save build artifact
         uses: actions/upload-artifact@v4
         with:

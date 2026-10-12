@@ -198,6 +198,10 @@ if __name__ == "__main__":
             main()
         except Exception:
             # La verificación automatizada debe fallar sin un diálogo bloqueante.
+            import tempfile
+            import traceback
+
+            (Path(tempfile.gettempdir()) / "CleanerKota-smoke-test.log").write_text(traceback.format_exc(), encoding="utf-8")
             sys.exit(1)
     else:
         main()
